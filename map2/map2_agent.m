@@ -70,10 +70,25 @@ global map_vars;
     %    map_vars.lastObservation.getInt(0), ...
     %    map_vars.lastAction.getInt(0), theReward, ...
     %    theObservation.getInt(0));
-    
+
+    % select action
     theAction = softmax_action(theObservation.getInt(0));
     map_vars.lastAction = theAction;
 
+    % discount activation values
+    map_vars.activations ...
+        = floor(map_vars.activations*map_vars.STM_DECAY_RATE);
+    % add winner's activation value
+    map_vars.activations(newActionInt, newObsInt+1) ...
+        = map_vars.activations(newActionInt, newObsInt+1) ...
+        + (1.0/map_vars.STM_DECAY_RATE)^map_vars.STM_SIZE;
+    %disp(map_vars.activations);
+    if(map_vars.step_count > map_vars.STM_SIZE)
+        assert(sum(sum(map_vars.activations)) == 31);
+        %surf(map_vars.activations);
+    end
+    
+    % encode
     if mod(map_vars.step_count, map_vars.STM_SIZE) == 0
         %fprintf(1,'update layer 1\n');
         map_update();
@@ -107,21 +122,7 @@ global map_vars;
             break;
         end
     end
-    
-    % discount activation values
-    map_vars.activations ...
-        = floor(map_vars.activations*map_vars.STM_DECAY_RATE);
-    
-    % add winner's activation value
-    map_vars.activations(newActionInt, newObsInt+1) ...
-        = map_vars.activations(newActionInt, newObsInt+1) ...
-        + (1.0/map_vars.STM_DECAY_RATE)^map_vars.STM_SIZE;
-    %disp(map_vars.activations);
-    if(map_vars.step_count > map_vars.STM_SIZE)
-        assert(sum(sum(map_vars.activations)) == 31);
-        %surf(map_vars.activations);
-    end
-            
+     
     theAction = org.rlcommunity.rlglue.codec.types.Action(1, 0, 0);
     theAction.setInt(0,newActionInt-1);
 end
@@ -130,16 +131,19 @@ end
 % Update the sequence encoding map
 function map_update()
 global map_vars;
-
+        
     fprintf(1,'step %d\n',map_vars.step_count);
     % find matching node
     for row2 = 1:map_vars.MAP2_SIZE
         for col2 = 1:map_vars.MAP2_SIZE
             s = sum(sum(map_vars.map2(row2,col2,:,:)));
             if s == 0 || map_stm_match(map_vars.map2(row2,col2,:,:)) == 31
+                if s == 0
+                    map_learn();
+                end
                 fprintf(1,'using node %d %d: weight sum %d\n',row2,col2,s);
                 return;
-            end 
+            end     
         end
     end
 end
