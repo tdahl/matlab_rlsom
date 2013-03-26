@@ -29,21 +29,24 @@ function map_agent_init(taskSpecJavaString)
     map_vars.STM_SIZE = 4;
     map_vars.STM_DECAY_RATE = 0.5;
     
-    map_vars.MAP2_SIZE = 4;
+    map_vars.MAP2_SIZE = 64;
     
     map_vars.numObservations ...
         = theTaskSpec.getDiscreteObservationRange(0).getMax() + 1;
     map_vars.numActions ...
         = theTaskSpec.getDiscreteActionRange(0).getMax() + 1;
     
+    % Level 0 (bottom) map
     map_vars.map = rand(map_vars.numActions, map_vars.numObservations);
     map_vars.activations ...
         = zeros(map_vars.numActions, map_vars.numObservations);
     
+    % Level 1 map
     map_vars.map2 ...
-        = zeros(map_vars.MAP2_SIZE, map_vars.MAP2_SIZE, ...
-        map_vars.numActions, map_vars.numObservations);
-    disp(size(map_vars.map2));
+        = zeros(map_vars.numActions, map_vars.numObservations, ...
+        map_vars.MAP2_SIZE, map_vars.MAP2_SIZE);
+    map_vars.map2_counts ...
+        = zeros(map_vars.MAP2_SIZE, map_vars.MAP2_SIZE);
 end    
 
 %
@@ -51,7 +54,7 @@ end
 function theAction = map_agent_start(theObservation)
 global map_vars;
     
-    map_vars.step_count = 1;
+    map_vars.step_count = 0;
     %fprintf(1,'step %d: o=%d\n', map_vars.step_count, ...
     %    theObservation.getInt(0));
 
@@ -66,32 +69,35 @@ function theAction = map_agent_step(theReward, theObservation)
 global map_vars;
 
     map_vars.step_count = map_vars.step_count + 1;
-    %fprintf(1,'step %d: o=%d a=%d r=%d o''=%d\n', map_vars.step_count, ...
-    %    map_vars.lastObservation.getInt(0), ...
-    %    map_vars.lastAction.getInt(0), theReward, ...
-    %    theObservation.getInt(0));
+%     fprintf(1,'step %d: o=%d a=%d r=%d o''=%d\n', map_vars.step_count, ...
+%         map_vars.lastObservation.getInt(0), ...
+%         map_vars.lastAction.getInt(0), theReward, ...
+%         theObservation.getInt(0));
 
     % select action
-    theAction = softmax_action(theObservation.getInt(0));
+    theObservationInt = theObservation.getInt(0);
+    theAction = softmax_action(theObservationInt);
     map_vars.lastAction = theAction;
 
     % discount activation values
     map_vars.activations ...
         = floor(map_vars.activations*map_vars.STM_DECAY_RATE);
     % add winner's activation value
-    map_vars.activations(newActionInt, newObsInt+1) ...
-        = map_vars.activations(newActionInt, newObsInt+1) ...
-        + (1.0/map_vars.STM_DECAY_RATE)^map_vars.STM_SIZE;
+    theActionInt = theAction.getInt(0);
+    map_vars.activations(theActionInt+1, theObservationInt+1) ...
+        = map_vars.activations(theActionInt+1, theObservationInt+1) ...
+        + (1.0/map_vars.STM_DECAY_RATE)^(map_vars.STM_SIZE-1);
     %disp(map_vars.activations);
     if(map_vars.step_count > map_vars.STM_SIZE)
-        assert(sum(sum(map_vars.activations)) == 31);
+        assert(sum(sum(map_vars.activations)) ...
+            == (1.0/map_vars.STM_DECAY_RATE)^(map_vars.STM_SIZE)-1);
         %surf(map_vars.activations);
     end
     
     % encode
     if mod(map_vars.step_count, map_vars.STM_SIZE) == 0
         %fprintf(1,'update layer 1\n');
-        map_update();
+        map_encode();
     end
     
     map_vars.lastObservation = theObservation;
@@ -129,23 +135,43 @@ end
 
 %
 % Update the sequence encoding map
-function map_update()
+function map_encode()
 global map_vars;
         
-    fprintf(1,'step %d\n',map_vars.step_count);
-    % find matching node
-    for row2 = 1:map_vars.MAP2_SIZE
-        for col2 = 1:map_vars.MAP2_SIZE
-            s = sum(sum(map_vars.map2(row2,col2,:,:)));
-            if s == 0 || map_stm_match(map_vars.map2(row2,col2,:,:)) == 31
-                if s == 0
-                    map_learn();
-                end
-                fprintf(1,'using node %d %d: weight sum %d\n',row2,col2,s);
+    % find identical or unused node
+    for row = 1:map_vars.MAP2_SIZE
+        for col = 1:map_vars.MAP2_SIZE
+            s = sum(sum(map_vars.map2(:, :, row, col)));
+            if s == 0
+                %fprintf(1,'found unused node %d %d: weight sum %d\n', ...
+                %    row, col, s);                
+                % found unused node
+                % change connection weights
+                %disp('connections before encoding');
+                %disp(map_vars.map2(:, :, row, col));
+                map_vars.map2(:, :, row, col) ...
+                    = map_vars.map2(:, :, row, col)+map_vars.activations;
+                map_vars.map2_counts(row, col) ...
+                    = map_vars.map2_counts(row, col)+1;
+                %disp('connections after encoding');
+                %disp(map_vars.map2(:, :, row, col));                
                 return;
-            end     
+            end
+            diff = map_vars.activations-map_vars.map2(:, :, row, col);
+            if diff == 0
+                % found identical node
+                % weight change not required
+                map_vars.map2_counts(row, col) ...
+                    = map_vars.map2_counts(row, col)+1;
+                %fprintf(1, ...
+                %    'found identical node %d %d: weight sum %d\n', ...
+                %    row, col, s);   
+                return;
+            end
         end
     end
+    % Has run out of nodes.
+    assert(false);
 end
 
 %
@@ -154,44 +180,88 @@ function map_agent_end(theReward)
 global map_vars;
 
     map_vars.step_count = map_vars.step_count + 1;
+    
+    % encode reward node
+    map_encode();
+    for row = 1:map_vars.MAP2_SIZE
+        for col = 1:map_vars.MAP2_SIZE
+            s = sum(sum(map_vars.map2(:, :, row, col)));
+            if s == 0
+                disp('last node');
+                %disp(
+            end
+        end
+    end
     %fprintf(1,'step %d: o=%d a=%d r=%d\n', map_vars.step_count, ...
     %    map_vars.lastObservation.getInt(0), ...
     %    map_vars.lastAction.getInt(0), theReward);
+    %disp(map_vars.map2_counts);
+    surf(map_vars.map2_counts);
+
 end
 
 %
 % Ignores all messages
 function returnMessage = map_agent_message(theMessageJavaObject)
+global map_vars;
 %Java strings are objects, and we want a Matlab string
     inMessage = char(theMessageJavaObject);
 
-   	if strcmp(inMessage, 'freeze learning')
-		returnMessage = 'message understood, policy frozen';
+   	if strcmp(inMessage,'freeze learning')
+		map_vars.policyFrozen=true;
+		returnMessage='message understood, policy frozen';
         return;
     end
-    if strcmp(inMessage, 'unfreeze learning')
-		returnMessage = 'message understood, policy unfrozen';
+
+    if strcmp(inMessage,'unfreeze learning')
+		map_vars.policyFrozen=false;
+		returnMessage='message understood, policy unfrozen';
         return;
 	end
-	if strcmp(inMessage, 'freeze exploring')
-		returnMessage = 'message understood, exploring frozen';
+	if strcmp(inMessage,'freeze exploring')
+		map_vars.exploringFrozen=true;
+		returnMessage='message understood, exploring frozen';
         return;
 	end
-	if strcmp(inMessage, 'unfreeze exploring')
-		returnMessage = 'message understood, exploring unfrozen';
+	if strcmp(inMessage,'unfreeze exploring')
+		map_vars.exploringFrozen=false;
+		returnMessage='message understood, exploring unfrozen';
         return;
     end
-    if strncmp(inMessage, 'save_policy',11)
-		returnMessage = 'message understood, saving policy';
+    if strncmp(inMessage,'save_policy',11)
+        [commandString,remainder]=strtok(inMessage);
+        fileName=strtok(remainder);
+		fprintf(1,'Saving value function...');
+        saveValueFunction(fileName);
+		fprintf(1,'Saved.\n');
+		returnMessage='message understood, saving policy';
         return;
 	end
-	if strncmp(inMessage, 'load_policy', 11)
-		returnMessage = 'message understood, loading policy';
-        return;
+	if strncmp(inMessage,'load_policy',11)
+        [commandString,remainder]=strtok(inMessage);
+        fileName=strtok(remainder);
+        loadValueFunction(fileName);
+		fprintf(1,'Loaded.\n');
+		returnMessage='message understood, loading policy';
+        return;    
     end
     
 	returnMessage ...
         = 'Map2Agent(Matlab) does not understand your message.';
+end
+
+function loadValueFunction(fileName)
+global map_vars;
+
+    loadedStruct=load(fileName,'-mat');    
+    map_vars.map2_counts=loadedStruct.map2_counts;
+end
+
+function saveValueFunction(fileName)
+global map_vars;
+
+    theSaveCommand=sprintf('save %s -mat -struct ''map_vars'' ''map2_counts''',fileName);
+    eval(theSaveCommand);
 end
 
 function map_agent_cleanup()

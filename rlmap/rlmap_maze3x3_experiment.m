@@ -1,4 +1,4 @@
-function map2_maze2_experiment()
+function rlmap_maze3x3_experiment()
  
 	RL_init();
     fprintf(1,'Starting offline demo\n----------------------------\n');

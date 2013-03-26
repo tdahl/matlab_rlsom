@@ -9,11 +9,25 @@ function map2_maze3x3_experiment()
     fprintf(1,'------------------\n');
 	offline_demo();
 
+    fprintf(1,'\nNow we will save the agent''s learned value function to a file....\n');
+	RL_agent_message('save_policy results.dat');
+
 	fprintf(1,'\nCalling RL_cleanup and RL_init to clear the ');
     fprintf(1,'agent''s memory...\n');
 	RL_cleanup();
 	RL_init();
 
+	fprintf(1,'Evaluating the agent''s default policy:\n\t\tMean Return\tStandardDeviation\n------------------------------------------------------\n');
+	[theMean,theStdDev]=evaluate_agent();
+	print_score(0,theMean,theStdDev);
+	
+	fprintf(1,'\nLoading up the value function we saved earlier.\n');
+	RL_agent_message('load_policy results.dat');
+    
+	fprintf(1,'Evaluating the agent after loading the value function:\n\t\tMean Return\tStandardDeviation\n------------------------------------------------------\n');
+	[theMean,theStdDev]=evaluate_agent();
+	print_score(0,theMean,theStdDev);    
+    
     fprintf(1,'Telling the environment to use random start state.\n');
     RL_env_message('set-random-start-state');
     RL_start();
