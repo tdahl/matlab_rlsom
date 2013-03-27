@@ -30,9 +30,6 @@ function map_agent_init(taskSpecJavaString)
     rlmap_vars.STM_DECAY_RATE = 0.5;
     
     rlmap_vars.INPUT_SIZE = 3;
-    rlmap_vars.INPUT_OBSERVATION_IDX = 1;
-    rlmap_vars.INPUT_ACTION_IDX = 2;
-    rlmap_vars.INPUT_REWARD_IDX = 3;
     rlmap_vars.MAP_SIZE = 4;
     rlmap_vars.MAP2_SIZE = 32;
 
@@ -45,7 +42,11 @@ function map_agent_init(taskSpecJavaString)
         = theTaskSpec.getDiscreteActionRange(0).getMax() + 1;
     
     % Level 0 (bottom) map
-    rlmap_vars.map = zeros(rlmap_vars.INPUT_SIZE, rlmap_vars.MAP_SIZE, ...
+    rlmap_vars.map_observations = zeros(rlmap_vars.MAP_SIZE, ...
+        rlmap_vars.MAP_SIZE);
+    rlmap_vars.map_actions = zeros(rlmap_vars.MAP_SIZE, ...
+        rlmap_vars.MAP_SIZE);
+    rlmap_vars.map_rewards = zeros(rlmap_vars.MAP_SIZE, ...
         rlmap_vars.MAP_SIZE);
     rlmap_vars.activations = zeros(rlmap_vars.MAP_SIZE, ...
         rlmap_vars.MAP_SIZE);
@@ -112,19 +113,22 @@ global rlmap_vars;
     rlmap_vars.activations ...
         = floor(rlmap_vars.activations*rlmap_vars.STM_DECAY_RATE);
     % find or construct winning node
-    input = [typecast(lastObservationInt, 'double'); ...
-        typecast(lastActionInt, 'double'); theReward];    % find identical or unused node
     found = false;
     for row = 1:rlmap_vars.MAP_SIZE
         for col = 1:rlmap_vars.MAP_SIZE
-            s = sum(rlmap_vars.map(:, row, col));
-            if s == 0
+            input_sum = 0.0;
+            input_sum = input_sum+rlmap_vars.map_observations(row, col);
+            input_sum = input_sum+rlmap_vars.map_actions(row, col);
+            input_sum = input_sum+rlmap_vars.map_rewards(row, col);
+            if input_sum == 0
                 % found unused node
                 %if theReward == 10.0
                 %    fprintf(1, 'using new node %d %d\n', row, col);
                 %end
                 found = true;
-                rlmap_vars.map(:, row, col) = input;
+                rlmap_vars.map_observations(row, col) = lastObservationInt;
+                rlmap_vars.map_actions(row, col) = lastActionInt;
+                rlmap_vars.map_rewards(row, col) = theReward;
                 % add winner's activation value
                 rlmap_vars.activations(row, col) ...
                     = (1.0/rlmap_vars.STM_DECAY_RATE) ...
@@ -137,7 +141,13 @@ global rlmap_vars;
                 %disp(rlmap_vars.map(:, row, col));
                 %disp('input');
                 %disp(input);
-                diff = sum(rlmap_vars.map(:, row, col)-input);
+                diff = 0.0;
+                diff = diff+abs(rlmap_vars.map_observations(row, col) ...
+                    -lastObservationInt);
+                diff = diff+abs(rlmap_vars.map_actions(row, col) ...
+                    -lastActionInt);
+                diff = diff+abs(rlmap_vars.map_rewards(row, col) ...
+                    -theReward);
                 %if theReward == 10
                 %    disp('diff');
                 %    disp(diff);
@@ -183,6 +193,7 @@ function theAction = select_action(theObservation)
 global rlmap_vars;
 
     % discount rewards
+    rlmap_vars.map_dfrs = zeros(rlmap_vars.MAP_SIZE, rlmap_vars.MAP_SIZE);    
     for row2 = 1:rlmap_vars.MAP2_SIZE
         for col2 = 1:rlmap_vars.MAP2_SIZE
             connections = rlmap_vars.map2(:, :, row2, col2);
@@ -203,11 +214,11 @@ global rlmap_vars;
                     weight2 = connections(nzrow2, nzcol2);
                     if weight2 > weight
                         reward = ...
-                            rlmap_vars.map(rlmap_vars.INPUT_REWARD_IDX, ...
-                            nzrow2,nzcol2);
+                            rlmap_vars.map_rewards(nzrow2,nzcol2);
                         dist = log2(weight2) - log2(weight);
                         discounted_reward = reward ...
                             *rlmap_vars.REWARD_DISCOUNT_RATE^dist;
+                        discounted_rewards = dic HERE
                         fprintf(1, 'weight %d (%d %d)', weight, nzrow, ...
                             nzcol);
                         fprintf(1, ', higher %d (%d %d)', weight2, ...
@@ -219,6 +230,10 @@ global rlmap_vars;
             end
         end
     end
+    
+    % observation matches
+    observation_matches = abs(rlmap_vars.map_observations-theObservation);
+    weightsum = 
     
     newActionInt = randi(rlmap_vars.numActions)-1;
     theAction = org.rlcommunity.rlglue.codec.types.Action(1, 0, 0);
