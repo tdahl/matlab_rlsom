@@ -26,10 +26,10 @@ function taskSpecString = maze2_init()
     maze2_struct.OBS_SOUTH = 2;
     maze2_struct.OBS_WEST = 1;
     
-    maze2_struct.MOVE_NORTH = 0;
-    maze2_struct.MOVE_EAST = 1;
-    maze2_struct.MOVE_SOUTH = 2;
-    maze2_struct.MOVE_WEST = 3;
+    maze2_struct.MOVE_NORTH = 1;
+    maze2_struct.MOVE_EAST = 2;
+    maze2_struct.MOVE_SOUTH = 3;
+    maze2_struct.MOVE_WEST = 4;
 
     maze2_struct.REWARD_GOAL = 10;
     maze2_struct.REWARD_STEP = -0.1;
@@ -107,9 +107,9 @@ function rewardObservation = maze2_step(thisAction)
     assert (thisAction.getNumInts() ...
         == 1,'Expecting a 1-dimensional integer action.');
     assert (thisAction.getInt(0) ...
-        >= 0,'Action too small, should be in [0,4].');
+        > 0,'Action too small, should be in [1,5].');
     assert (thisAction.getInt(0) ...
-        < 4,'Action too large, should be in [0,4].');
+        < 5,'Action too large, should be in [1,5].');
         
 	updatePosition(thisAction.getInt(0));
     
@@ -281,7 +281,7 @@ global maze2_struct;
     newRow = maze2_struct.theWorld.agentRow-1;
     newCol = maze2_struct.theWorld.agentCol-1;
  
-    totalObservation = 0;
+    totalObservation = 1;
     if check_valid(newRow+1, newCol)
         totalObservation = totalObservation + maze2_struct.OBS_NORTH;
     end

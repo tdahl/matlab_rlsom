@@ -28,12 +28,13 @@ function map_agent_init(taskSpecJavaString)
 
     rlmap_vars.STM_SIZE = 4;
     rlmap_vars.STM_DECAY_RATE = 0.5;
+    rlmap_vars.REWARD_DISCOUNT_RATE = 0.9;
+    rlmap_vars.MIN_DFR = -9999.9;
+    rlmap_vars.EXPLORATION_RATE = 0.2;
     
     rlmap_vars.INPUT_SIZE = 3;
-    rlmap_vars.MAP_SIZE = 4;
-    rlmap_vars.MAP2_SIZE = 32;
-
-    rlmap_vars.REWARD_DISCOUNT_RATE = 0.9;
+    rlmap_vars.MAP_SIZE = 8;
+    rlmap_vars.MAP2_SIZE = 64;
     
     rlmap_vars.nodecount = 0;
     rlmap_vars.numObservations ...
@@ -52,7 +53,7 @@ function map_agent_init(taskSpecJavaString)
         rlmap_vars.MAP_SIZE);
     rlmap_vars.map_counts = zeros(rlmap_vars.MAP_SIZE, ...
         rlmap_vars.MAP_SIZE);
-    rlmap_vars.discounted_rewards = zeros(rlmap_vars.MAP_SIZE, ...
+    rlmap_vars.disc_rewards = zeros(rlmap_vars.MAP_SIZE, ...
         rlmap_vars.MAP_SIZE);
     
     % Level 1 map
@@ -60,6 +61,8 @@ function map_agent_init(taskSpecJavaString)
         rlmap_vars.MAP2_SIZE, rlmap_vars.MAP2_SIZE);
     rlmap_vars.map2_counts = zeros(rlmap_vars.MAP2_SIZE, ...
         rlmap_vars.MAP2_SIZE);
+    
+    rlmap_vars.exploringFrozen = false;
 end    
 
 %
@@ -193,21 +196,26 @@ function theAction = select_action(theObservation)
 global rlmap_vars;
 
     % discount rewards
-    rlmap_vars.map_dfrs = zeros(rlmap_vars.MAP_SIZE, rlmap_vars.MAP_SIZE);    
+    rlmap_vars.disc_rewards ...
+        = ones(rlmap_vars.MAP_SIZE, rlmap_vars.MAP_SIZE) ...
+        *rlmap_vars.MIN_DFR;    
     for row2 = 1:rlmap_vars.MAP2_SIZE
         for col2 = 1:rlmap_vars.MAP2_SIZE
             connections = rlmap_vars.map2(:, :, row2, col2);
             [nzrows, nzcols] = find(connections>0);
-            if size(nzrows) ~= 0
-                fprintf(1, 'map2 node %d %d non zero rows and columns\n', ...
-                    row2, col2);
-                disp([nzrows, nzcols]);
-            end
-            discounted_rewards = 0.0;
+            %if size(nzrows) ~= 0
+            %    fprintf(1, 'map2 node %d %d non zero rows and columns\n', ...
+            %        row2, col2);
+            %    disp([nzrows, nzcols]);
+            %end
+            % for all non-zero connections
             for nzidx = 1:size(nzrows)
                 nzrow = nzrows(nzidx);
                 nzcol = nzcols(nzidx);
                 weight = connections(nzrow, nzcol);
+                sum_rewards = rlmap_vars.map_rewards(nzrow, nzcol);
+                %fprintf(1, 'local reward %.4f\n', sum_rewards); 
+                % consider all other non-zero connections
                 for nzidx2 = 1:size(nzrows)
                     nzrow2 = nzrows(nzidx2);
                     nzcol2 = nzcols(nzidx2);
@@ -216,26 +224,84 @@ global rlmap_vars;
                         reward = ...
                             rlmap_vars.map_rewards(nzrow2,nzcol2);
                         dist = log2(weight2) - log2(weight);
-                        discounted_reward = reward ...
+                        disc_reward = reward ...
                             *rlmap_vars.REWARD_DISCOUNT_RATE^dist;
-                        discounted_rewards = dic HERE
-                        fprintf(1, 'weight %d (%d %d)', weight, nzrow, ...
-                            nzcol);
-                        fprintf(1, ', higher %d (%d %d)', weight2, ...
-                            nzrow2, nzcol2);
-                        fprintf(1, ', reward %.2f, dist %d', reward, dist)
-                        fprintf(1, ', disc.r %.4f\n', discounted_reward);
-                    end
+                        sum_rewards = sum_rewards+disc_reward;
+                         %fprintf(1, 'weight %d (%d %d)', weight, nzrow, ...
+                         %    nzcol);
+                         %fprintf(1, ', higher %d (%d %d)', weight2, ...
+                         %    nzrow2, nzcol2);
+                         %fprintf(1, ', reward %.2f, dist %d', reward, dist)
+                         %fprintf(1, ', disc.r. %.4f', disc_reward);
+                         %fprintf(1, ', sum d.r. %.4f\n', sum_rewards);
+                    end                   
                 end
+                if sum_rewards > rlmap_vars.disc_rewards(nzrow, nzcol)
+                    rlmap_vars.disc_rewards(nzrow, nzcol) = sum_rewards;
+                end
+                %fprintf(1, 'discounted rewards %.4f\n', sum_rewards);
             end
         end
     end
     
     % observation matches
-    observation_matches = abs(rlmap_vars.map_observations-theObservation);
-    weightsum = 
-    
-    newActionInt = randi(rlmap_vars.numActions)-1;
+    explore_prob = rand();
+    obs_match_mtx = rlmap_vars.map_observations ...
+        == theObservation.getInt(0);
+    if (~rlmap_vars.exploringFrozen) ...
+            && (explore_prob < rlmap_vars.EXPLORATION_RATE)
+        % time to explore
+        newActionInt = randi(rlmap_vars.numActions);
+        %fprintf(1, 'exploration time, random action %d\n', newActionInt); 
+    elseif sum(sum(obs_match_mtx)) > 0
+        % matching observations exist in the level 0 map 
+        obs_match_act_mtx = rlmap_vars.map_actions.*obs_match_mtx;
+        [r, c, obs_match_actions] = find(obs_match_act_mtx);
+        obs_match_drew_mtx = rlmap_vars.disc_rewards.*obs_match_mtx;
+        [~, ~, obs_match_disc_rewards] = find(obs_match_drew_mtx);
+        %disp('obs');
+        %disp(theObservation.getInt(0));
+        %disp('observations');
+        %disp(rlmap_vars.map_observations);
+        %disp('obs match mtx');
+        %disp(obs_match_mtx);
+        %disp('actions');
+        %disp(rlmap_vars.map_actions);
+        %disp('obs matching action matrix');
+        %disp(obs_match_act_mtx);
+        %disp('obs matching actions');
+        %disp(obs_match_actions);
+        %disp('rewards');
+        %disp(rlmap_vars.map_rewards);
+        %disp('discounted rewards');
+        %disp(rlmap_vars.disc_rewards);
+        %disp('obs matching discounted rewards');
+        %disp(obs_match_disc_rewards);
+
+        % normalise discounted rewards
+        obs_act_probs = softmax(obs_match_disc_rewards);
+        %disp('softmax');
+        %disp(obs_act_probs);
+        % find softmax winner
+        rand_prob = rand();
+        %fprintf(1, 'rand prob %.4f\n', rand_prob);
+        prob = 0.0;
+        for action_idx = 1:size(obs_act_probs)
+            %disp(action_idx);
+            prob = prob+obs_act_probs(action_idx);
+            %disp(prob);
+            if rand_prob <= prob
+                %fprintf('chose index %d\n', action_idx);
+                break;
+            end
+        end
+        newActionInt = obs_match_actions(action_idx);
+        %fprintf(1,'action idx %d, action %d\n', action_idx, newActionInt);
+    else
+        % no records exist for the current observation
+        newActionInt = randi(rlmap_vars.numActions);
+        %fprintf(1, 'no records, random action %d\n', newActionInt); 
+    end
     theAction = org.rlcommunity.rlglue.codec.types.Action(1, 0, 0);
     theAction.setInt(0,newActionInt);
 end
@@ -246,8 +312,7 @@ end
 function theAction = random_action()
 global rlmap_vars;
      
-    newActionInt = randi(rlmap_vars.numActions)-1;
-
+    newActionInt = randi(rlmap_vars.numActions);
     theAction = org.rlcommunity.rlglue.codec.types.Action(1, 0, 0);
     theAction.setInt(0,newActionInt);
 end
@@ -293,8 +358,8 @@ global rlmap_vars;
     rlmap_vars.step_count = rlmap_vars.step_count + 1;
     lastObservationInt = rlmap_vars.lastObservation.getInt(0);
     lastActionInt = rlmap_vars.lastAction.getInt(0);
-    fprintf(1, 'step %d: o=%d a=%d r=%d\n', rlmap_vars.step_count, ...
-        lastObservationInt, lastActionInt, theReward);
+    %fprintf(1, 'step %d: o=%d a=%d r=%d\n', rlmap_vars.step_count, ...
+    %    lastObservationInt, lastActionInt, theReward);
     
     % record last o/a/r triplet activate winner and decay other nodes
     activate_and_decay(theReward);
@@ -313,7 +378,6 @@ global rlmap_vars;
     %disp(rlmap_vars.map);
     %surf(rlmap_vars.map_counts);
     %surf(rlmap_vars.map2_counts);
-
 end
 
 %

@@ -27,10 +27,10 @@ function taskSpecString = maze3x3_init()
     maze3x3_struct.OBS_SOUTH = 2;
     maze3x3_struct.OBS_WEST = 1;
     
-    maze3x3_struct.MOVE_NORTH = 0;
-    maze3x3_struct.MOVE_EAST = 1;
-    maze3x3_struct.MOVE_SOUTH = 2;
-    maze3x3_struct.MOVE_WEST = 3;
+    maze3x3_struct.MOVE_NORTH = 1;
+    maze3x3_struct.MOVE_EAST = 2;
+    maze3x3_struct.MOVE_SOUTH = 3;
+    maze3x3_struct.MOVE_WEST = 4;
 
     maze3x3_struct.REWARD_GOAL = 10;
     maze3x3_struct.REWARD_STEP = -0.1;
@@ -108,9 +108,9 @@ function rewardObservation = maze3x3_step(thisAction)
     assert (thisAction.getNumInts() ...
         == 1,'Expecting a 1-dimensional integer action.');
     assert (thisAction.getInt(0) ...
-        >= 0,'Action too small, should be in [0,4].');
+        > 0,'Action too small, should be in [1,5].');
     assert (thisAction.getInt(0) ...
-        < 4,'Action too large, should be in [0,4].');
+        < 5,'Action too large, should be in [1,5].');
         
 	updatePosition(thisAction.getInt(0));
     
@@ -282,7 +282,7 @@ global maze3x3_struct;
     newRow = maze3x3_struct.theWorld.agentRow-1;
     newCol = maze3x3_struct.theWorld.agentCol-1;
  
-    totalObservation = 0;
+    totalObservation = 1;
     if check_valid(newRow+1, newCol)
         totalObservation = totalObservation + maze3x3_struct.OBS_NORTH;
     end
