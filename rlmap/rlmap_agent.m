@@ -33,8 +33,8 @@ function map_agent_init(taskSpecJavaString)
     rlmap_vars.EXPLORATION_RATE = 0.2;
     
     rlmap_vars.INPUT_SIZE = 3;
-    rlmap_vars.MAP_SIZE = 8;
-    rlmap_vars.MAP2_SIZE = 64;
+    rlmap_vars.MAP_SIZE = 4;
+    rlmap_vars.MAP2_SIZE = 16;
     
     rlmap_vars.nodecount = 0;
     rlmap_vars.numObservations ...
@@ -279,7 +279,8 @@ global rlmap_vars;
         %disp(obs_match_disc_rewards);
 
         % normalise discounted rewards
-        obs_act_probs = softmax(obs_match_disc_rewards);
+        obs_act_probs = exp(obs_match_disc_rewards) ...
+            /sum(exp(obs_match_disc_rewards));
         %disp('softmax');
         %disp(obs_act_probs);
         % find softmax winner
