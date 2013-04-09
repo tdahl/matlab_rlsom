@@ -278,20 +278,20 @@ end
 function totalObservation = getObservation()
 global maze2_struct;
     
-    newRow = maze2_struct.theWorld.agentRow-1;
-    newCol = maze2_struct.theWorld.agentCol-1;
+    newRow = maze2_struct.theWorld.agentRow;
+    newCol = maze2_struct.theWorld.agentCol;
  
     totalObservation = 1;
-    if check_valid(newRow+1, newCol)
+    if ~check_valid(newRow-1, newCol)
         totalObservation = totalObservation + maze2_struct.OBS_NORTH;
     end
-    if check_valid(newRow, newCol+1)
+    if ~check_valid(newRow, newCol+1)
         totalObservation = totalObservation + maze2_struct.OBS_EAST;
     end
-    if check_valid(newRow-1, newCol)
+    if ~check_valid(newRow+1, newCol)
         totalObservation = totalObservation + maze2_struct.OBS_SOUTH;
     end
-    if check_valid(newRow, newCol-1)
+    if ~check_valid(newRow, newCol-1)
         totalObservation = totalObservation + maze2_struct.OBS_WEST;
     end
 end
@@ -304,25 +304,31 @@ global maze2_struct;
     newRow = maze2_struct.theWorld.agentRow;
     newCol = maze2_struct.theWorld.agentCol;
 
+    fprintf(1, 'updating position (%d %d) action %d\n', newCol, newRow, ...
+        theIntAction);
 	
 	if theIntAction == maze2_struct.MOVE_NORTH
-		newRow = newRow + 1;
+		newRow = newRow-1;
 	end
 	if theIntAction == maze2_struct.MOVE_EAST
-		newCol = newCol + 1;
+		newCol = newCol+1;
 	end
 	if theIntAction == maze2_struct.MOVE_SOUTH
-		newRow = newRow - 1;
+		newRow = newRow+1;
 	end
 	if theIntAction == maze2_struct.MOVE_WEST
-		newCol = newCol - 1;
+		newCol = newCol-1;
     end
     
+    fprintf(1, 'new pos (%d %d)\n', newCol, newRow);
     
 	%Check if new position is out of bounds or inside an obstacle 
 	if check_valid(newRow, newCol)
    		maze2_struct.theWorld.agentRow = newRow;
    		maze2_struct.theWorld.agentCol = newCol;
+        fprintf(1, 'valid\n');
+    else
+        fprintf(1, 'not valid\n');
 	end
 end
 

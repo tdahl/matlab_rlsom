@@ -32,9 +32,11 @@ function map_agent_init(taskSpecJavaString)
     rlmap_vars.MIN_DFR = -9999.9;
     rlmap_vars.EXPLORATION_RATE = 0.2;
     
+    rlmap_vars.HISTORY_WEIGHT = 0.8;
+    rlmap_vars.REWARD_WEIGHT = 1.0-rlmap_vars.HISTORY_WEIGHT;
     rlmap_vars.INPUT_SIZE = 3;
-    rlmap_vars.MAP_SIZE = 4;
-    rlmap_vars.MAP2_SIZE = 16;
+    rlmap_vars.MAP_SIZE = 8;
+    rlmap_vars.MAP2_SIZE = 64;
     
     rlmap_vars.nodecount = 0;
     rlmap_vars.numObservations ...
@@ -53,7 +55,7 @@ function map_agent_init(taskSpecJavaString)
         rlmap_vars.MAP_SIZE);
     rlmap_vars.map_counts = zeros(rlmap_vars.MAP_SIZE, ...
         rlmap_vars.MAP_SIZE);
-    rlmap_vars.disc_rewards = zeros(rlmap_vars.MAP_SIZE, ...
+    rlmap_vars.max_weighted_sums = zeros(rlmap_vars.MAP_SIZE, ...
         rlmap_vars.MAP_SIZE);
     
     % Level 1 map
@@ -70,9 +72,11 @@ end
 function theAction = map_agent_start(theObservation)
 global rlmap_vars;
     
+    fprintf(1, '\nRestarting!\n');
     rlmap_vars.step_count = 0;
     rlmap_vars.lastObservation = theObservation;
     theAction = random_action();
+    theAction = user_action(theObservation);
     rlmap_vars.lastAction = theAction;
 end
 
@@ -195,10 +199,10 @@ end
 function theAction = select_action(theObservation)
 global rlmap_vars;
 
-    % discount rewards
-    rlmap_vars.disc_rewards ...
+    % discount rewards and match history
+    rlmap_vars.max_weighted_sums ...
         = ones(rlmap_vars.MAP_SIZE, rlmap_vars.MAP_SIZE) ...
-        *rlmap_vars.MIN_DFR;    
+        *rlmap_vars.MIN_DFR;
     for row2 = 1:rlmap_vars.MAP2_SIZE
         for col2 = 1:rlmap_vars.MAP2_SIZE
             connections = rlmap_vars.map2(:, :, row2, col2);
@@ -214,7 +218,9 @@ global rlmap_vars;
                 nzcol = nzcols(nzidx);
                 weight = connections(nzrow, nzcol);
                 sum_rewards = rlmap_vars.map_rewards(nzrow, nzcol);
-                %fprintf(1, 'local reward %.4f\n', sum_rewards); 
+                sum_matches = 0;
+                fprintf(1, 'weight %d (%d %d):\n', weight, nzrow, nzcol);                
+                fprintf(1, 'local reward %.4f\n', sum_rewards); 
                 % consider all other non-zero connections
                 for nzidx2 = 1:size(nzrows)
                     nzrow2 = nzrows(nzidx2);
@@ -227,82 +233,107 @@ global rlmap_vars;
                         disc_reward = reward ...
                             *rlmap_vars.REWARD_DISCOUNT_RATE^dist;
                         sum_rewards = sum_rewards+disc_reward;
-                         %fprintf(1, 'weight %d (%d %d)', weight, nzrow, ...
-                         %    nzcol);
-                         %fprintf(1, ', higher %d (%d %d)', weight2, ...
-                         %    nzrow2, nzcol2);
-                         %fprintf(1, ', reward %.2f, dist %d', reward, dist)
-                         %fprintf(1, ', disc.r. %.4f', disc_reward);
-                         %fprintf(1, ', sum d.r. %.4f\n', sum_rewards);
+                        fprintf(1, 'higher %d (%d %d)', weight2, ...
+                            nzrow2, nzcol2);
+                        fprintf(1, ', reward %.2f, dist %d\n', reward, dist);
+                    elseif weight2 < weight
+                        act = rlmap_vars.activations(nzrow2,nzcol2);
+                        if weight2 == act
+                            sum_matches = sum_matches+1;
+                        end
+                        fprintf(1, 'lower %d (%d %d)', weight2, ...
+                            nzrow2, nzcol2);
+                        fprintf(1, ', activation (%d %d) %d', ...
+                            nzrow2, nzcol2, act)
+                        fprintf(1, ', sum matches %d\n', sum_matches);
                     end                   
                 end
-                if sum_rewards > rlmap_vars.disc_rewards(nzrow, nzcol)
-                    rlmap_vars.disc_rewards(nzrow, nzcol) = sum_rewards;
+                weighted_sum = sum_matches*rlmap_vars.HISTORY_WEIGHT ...
+                    + sum_rewards*rlmap_vars.REWARD_WEIGHT;
+                if weighted_sum ...
+                        > rlmap_vars.max_weighted_sums(nzrow, nzcol)
+                    rlmap_vars.max_weighted_sums(nzrow, nzcol) ...
+                        = weighted_sum;
                 end
-                %fprintf(1, 'discounted rewards %.4f\n', sum_rewards);
+                fprintf(1, 'discounted rewards %.4f\n', sum_rewards);
+                fprintf(1, 'sum_matches %.4f\n', sum_matches);
+                fprintf(1, 'weighted sum %.4f\n', weighted_sum);
             end
         end
     end
     
     % observation matches
     explore_prob = rand();
-    obs_match_mtx = rlmap_vars.map_observations ...
-        == theObservation.getInt(0);
+    obs_mtx = rlmap_vars.map_observations == theObservation.getInt(0);
     if (~rlmap_vars.exploringFrozen) ...
             && (explore_prob < rlmap_vars.EXPLORATION_RATE)
         % time to explore
         newActionInt = randi(rlmap_vars.numActions);
         %fprintf(1, 'exploration time, random action %d\n', newActionInt); 
-    elseif sum(sum(obs_match_mtx)) > 0
+    elseif sum(sum(obs_mtx)) > 0
         % matching observations exist in the level 0 map 
-        obs_match_act_mtx = rlmap_vars.map_actions.*obs_match_mtx;
-        [r, c, obs_match_actions] = find(obs_match_act_mtx);
-        obs_match_drew_mtx = rlmap_vars.disc_rewards.*obs_match_mtx;
-        [~, ~, obs_match_disc_rewards] = find(obs_match_drew_mtx);
+        act_mtx = rlmap_vars.map_actions.*obs_mtx;
+        [~, ~, actions] = find(act_mtx);
+        sums_mtx = rlmap_vars.max_weighted_sums.*obs_mtx;
+        [~, ~, sums] = find(sums_mtx);
         %disp('obs');
         %disp(theObservation.getInt(0));
         %disp('observations');
         %disp(rlmap_vars.map_observations);
-        %disp('obs match mtx');
-        %disp(obs_match_mtx);
+        %disp('obs mtx');
+        %disp(obs_mtx);
         %disp('actions');
         %disp(rlmap_vars.map_actions);
-        %disp('obs matching action matrix');
-        %disp(obs_match_act_mtx);
-        %disp('obs matching actions');
-        %disp(obs_match_actions);
+        %disp('action matrix');
+        %disp(act_mtx);
+        %disp('actions');
+        %disp(actions);
         %disp('rewards');
         %disp(rlmap_vars.map_rewards);
-        %disp('discounted rewards');
-        %disp(rlmap_vars.disc_rewards);
-        %disp('obs matching discounted rewards');
-        %disp(obs_match_disc_rewards);
+        %disp('weighted sums');
+        %disp(rlmap_vars.max_weighted_sums);
 
         % normalise discounted rewards
-        obs_act_probs = exp(obs_match_disc_rewards) ...
-            /sum(exp(obs_match_disc_rewards));
+        act_probs = exp(sums)/sum(exp(sums));
         %disp('softmax');
         %disp(obs_act_probs);
         % find softmax winner
         rand_prob = rand();
         %fprintf(1, 'rand prob %.4f\n', rand_prob);
         prob = 0.0;
-        for action_idx = 1:size(obs_act_probs)
+        for action_idx = 1:size(act_probs)
             %disp(action_idx);
-            prob = prob+obs_act_probs(action_idx);
+            prob = prob+act_probs(action_idx);
             %disp(prob);
             if rand_prob <= prob
                 %fprintf('chose index %d\n', action_idx);
                 break;
             end
         end
-        newActionInt = obs_match_actions(action_idx);
+        newActionInt = actions(action_idx);
         %fprintf(1,'action idx %d, action %d\n', action_idx, newActionInt);
     else
         % no records exist for the current observation
         newActionInt = randi(rlmap_vars.numActions);
         %fprintf(1, 'no records, random action %d\n', newActionInt); 
     end
+    %theAction = org.rlcommunity.rlglue.codec.types.Action(1, 0, 0);
+    %theAction.setInt(0,newActionInt);
+    theAction = user_action(theObservation);
+end
+
+%
+% Get the next action from the user.
+function theAction = user_action(theObservation)
+global rlmap_vars;
+    newActionInt = 0;
+    while newActionInt < 1 || newActionInt > 4
+        fprintf(1, 'Observation %d.\n', theObservation.getInt(0)); 
+        newActionInt ...
+            = floor(input('Please input a valid command (1/2/3/4):'));
+        fprintf(1, 'user action %d\n', newActionInt); 
+    end
+
     theAction = org.rlcommunity.rlglue.codec.types.Action(1, 0, 0);
     theAction.setInt(0,newActionInt);
 end

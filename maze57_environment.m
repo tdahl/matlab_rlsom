@@ -1,46 +1,45 @@
 
-function theEnvironment = maze3x3_environment()
+function theEnvironment = maze57_environment()
 %Assign members of the returning struct to be function pointers
-	theEnvironment.env_init = @maze3x3_init;
-	theEnvironment.env_start = @maze3x3_start;
-	theEnvironment.env_step = @maze3x3_step;
-	theEnvironment.env_cleanup = @maze3x3_cleanup;
-	theEnvironment.env_message = @maze3x3_message;
+	theEnvironment.env_init = @maze57_init;
+	theEnvironment.env_start = @maze57_start;
+	theEnvironment.env_step = @maze57_step;
+	theEnvironment.env_cleanup = @maze57_cleanup;
+	theEnvironment.env_message = @maze57_message;
 end
  
 %This is what will be called for env_init
-function taskSpecString = maze3x3_init()
-	global maze3x3_struct;
+function taskSpecString = maze57_init()
+	global maze57_struct;
     
-    %maze3x3_struct acts like 'this' would from Java.  It's where we store
+    %maze57_struct acts like 'this' would from Java.  It's where we store
     %what would be member variables if this was an object.
-    maze3x3_struct.fixedStartState = true;
-    maze3x3_struct.startRow = 2;
-    maze3x3_struct.startCol = 2;
+    maze57_struct.fixedStartState = true;
+    maze57_struct.startRow = 2;
+    maze57_struct.startCol = 2;
     
-    maze3x3_struct.WORLD_FREE = 0;
-    maze3x3_struct.WORLD_OBSTACLE = 1;
-    maze3x3_struct.WORLD_GOAL = 2;
+    maze57_struct.WORLD_FREE = 0;
+    maze57_struct.WORLD_OBSTACLE = 1;
+    maze57_struct.WORLD_GOAL = 2;
     
-    maze3x3_struct.OBS_NORTH = 8;
-    maze3x3_struct.OBS_EAST = 4;
-    maze3x3_struct.OBS_SOUTH = 2;
-    maze3x3_struct.OBS_WEST = 1;
+    maze57_struct.OBS_NORTH = 8;
+    maze57_struct.OBS_EAST = 4;
+    maze57_struct.OBS_SOUTH = 2;
+    maze57_struct.OBS_WEST = 1;
     
-    maze3x3_struct.MOVE_NORTH = 1;
-    maze3x3_struct.MOVE_EAST = 2;
-    maze3x3_struct.MOVE_SOUTH = 3;
-    maze3x3_struct.MOVE_WEST = 4;
+    maze57_struct.MOVE_NORTH = 1;
+    maze57_struct.MOVE_EAST = 2;
+    maze57_struct.MOVE_SOUTH = 3;
+    maze57_struct.MOVE_WEST = 4;
 
-    maze3x3_struct.REWARD_GOAL = 10;
-    maze3x3_struct.REWARD_STEP = -0.1;
+    maze57_struct.REWARD_GOAL = 10;
+    maze57_struct.REWARD_STEP = -0.1;
 
     
-    theWorld.map = [1,1,1,1,1,1,1;
-                    1,0,0,0,0,0,1;
-                    1,0,1,0,1,0,1;
-                    1,0,1,2,1,0,1;
-                    1,1,1,1,1,1,1];
+    theWorld.map = [1,1,1,1,1,1,1,1,1,1,1,1,1;
+                    1,0,0,0,0,0,0,0,0,0,0,0,1;
+                    1,1,1,0,1,0,1,0,1,2,1,1,1;
+                    1,1,1,1,1,1,1,1,1,1,1,1,1];
     
     numRows = size(theWorld.map,1);
     numCols = size(theWorld.map,2);
@@ -48,7 +47,7 @@ function taskSpecString = maze3x3_init()
     theWorld.agentRow = 1;
     theWorld.agentCol = 1;
 
-    maze3x3_struct.theWorld = theWorld;
+    maze57_struct.theWorld = theWorld;
     
     theTaskSpecObject ...
         = org.rlcommunity.rlglue.codec.taskspec.TaskSpecVRLGLUE3();
@@ -73,21 +72,21 @@ function taskSpecString = maze3x3_init()
     theTaskSpecObject.setRewardRange(rewardRange);
 
     theTaskSpecObject.setExtra( ...
-        'Maze3x3Environment(Matlab) by Torbjorn S. Dahl.');
+        'Maze57Environment(Matlab) by Torbjorn S. Dahl.');
 
     taskSpecString = theTaskSpecObject.toTaskSpec();
 end
 
 %This is what will be called for env_start
-function theObservation = maze3x3_start()
-	global maze3x3_struct;
-    if maze3x3_struct.fixedStartState==true
-        maze3x3_struct.theWorld.agentRow = maze3x3_struct.startRow;
-        maze3x3_struct.theWorld.agentCol = maze3x3_struct.startCol;
+function theObservation = maze57_start()
+	global maze57_struct;
+    if maze57_struct.fixedStartState==true
+        maze57_struct.theWorld.agentRow = maze57_struct.startRow;
+        maze57_struct.theWorld.agentCol = maze57_struct.startCol;
 
         stateIsValid = ...
-            set_agent_state(maze3x3_struct.startRow, ...
-            maze3x3_struct.startCol);
+            set_agent_state(maze57_struct.startRow, ...
+            maze57_struct.startCol);
         if ~stateIsValid
             set_random_state();
         end
@@ -101,8 +100,8 @@ function theObservation = maze3x3_start()
 end
 
 %This is what will be called for env_step
-function rewardObservation = maze3x3_step(thisAction)
-    global maze3x3_struct;
+function rewardObservation = maze57_step(thisAction)
+    global maze57_struct;
 
 %Make sure the action is valid
     assert (thisAction.getNumInts() ...
@@ -117,8 +116,8 @@ function rewardObservation = maze3x3_step(thisAction)
     newObsInt = getObservation();
 	newReward = getReward();
     isTerminalBoolean ...
-        = check_terminal(maze3x3_struct.theWorld.agentRow, ...
-        maze3x3_struct.theWorld.agentCol);
+        = check_terminal(maze57_struct.theWorld.agentRow, ...
+        maze57_struct.theWorld.agentCol);
 
     if isTerminalBoolean
         isTerminalInt = 1;
@@ -136,8 +135,8 @@ end
 
 
 %This is what will be called for env_message
-function returnMessage = maze3x3_message(theMessageJavaObject)
-    global maze3x3_struct;
+function returnMessage = maze57_message(theMessageJavaObject)
+    global maze57_struct;
 
     %Java strings are objects, and we want a Matlab string
     inMessage = char(theMessageJavaObject);
@@ -146,7 +145,7 @@ function returnMessage = maze3x3_message(theMessageJavaObject)
     %'set-random-start-state'
     %Action: Set flag to do random starting states (the default)
     if strcmp(inMessage, 'set-random-start-state')
-        maze3x3_struct.fixedStartState = false;
+        maze57_struct.fixedStartState = false;
         returnMessage = 'Message understood.  Using random start state.';
         return;
     end
@@ -160,9 +159,9 @@ function returnMessage = maze3x3_message(theMessageJavaObject)
         [rowString,Remainder] = strtok(Remainder);
         colString = strtok(Remainder);
 
-        maze3x3_struct.startRow = str2double(rowString)+1;
-        maze3x3_struct.startCol = str2double(colString)+1;
-        maze3x3_struct.fixedStartState = true;
+        maze57_struct.startRow = str2double(rowString)+1;
+        maze57_struct.startCol = str2double(colString)+1;
+        maze57_struct.fixedStartState = true;
         returnMessage = 'Message understood.  Using fixed start state.';
         return;
     end
@@ -177,39 +176,39 @@ function returnMessage = maze3x3_message(theMessageJavaObject)
     end
 
     returnMessage ...
-        = 'Maze3x3 Environment(Matlab) does not respond to that message.';
+        = 'Maze57 Environment(Matlab) does not respond to that message.';
 
 end
 
-function maze3x3_cleanup()
-	global maze3x3_struct;
-	maze3x3_struct = rmfield(maze3x3_struct,'fixedStartState');
-	maze3x3_struct = rmfield(maze3x3_struct,'startRow');
-	maze3x3_struct = rmfield(maze3x3_struct,'startCol');
+function maze57_cleanup()
+	global maze57_struct;
+	maze57_struct = rmfield(maze57_struct,'fixedStartState');
+	maze57_struct = rmfield(maze57_struct,'startRow');
+	maze57_struct = rmfield(maze57_struct,'startCol');
 
-    maze3x3_struct = rmfield(maze3x3_struct,'WORLD_FREE');
-	maze3x3_struct = rmfield(maze3x3_struct,'WORLD_OBSTACLE');
-	maze3x3_struct = rmfield(maze3x3_struct,'WORLD_GOAL');
+    maze57_struct = rmfield(maze57_struct,'WORLD_FREE');
+	maze57_struct = rmfield(maze57_struct,'WORLD_OBSTACLE');
+	maze57_struct = rmfield(maze57_struct,'WORLD_GOAL');
     
-	maze3x3_struct = rmfield(maze3x3_struct,'OBS_NORTH');
-	maze3x3_struct = rmfield(maze3x3_struct,'OBS_EAST');
-	maze3x3_struct = rmfield(maze3x3_struct,'OBS_SOUTH');
-	maze3x3_struct = rmfield(maze3x3_struct,'OBS_WEST');
+	maze57_struct = rmfield(maze57_struct,'OBS_NORTH');
+	maze57_struct = rmfield(maze57_struct,'OBS_EAST');
+	maze57_struct = rmfield(maze57_struct,'OBS_SOUTH');
+	maze57_struct = rmfield(maze57_struct,'OBS_WEST');
     
-	maze3x3_struct = rmfield(maze3x3_struct,'MOVE_NORTH');
-	maze3x3_struct = rmfield(maze3x3_struct,'MOVE_EAST');
-	maze3x3_struct = rmfield(maze3x3_struct,'MOVE_SOUTH');
-	maze3x3_struct = rmfield(maze3x3_struct,'MOVE_WEST');
+	maze57_struct = rmfield(maze57_struct,'MOVE_NORTH');
+	maze57_struct = rmfield(maze57_struct,'MOVE_EAST');
+	maze57_struct = rmfield(maze57_struct,'MOVE_SOUTH');
+	maze57_struct = rmfield(maze57_struct,'MOVE_WEST');
 
-    maze3x3_struct = rmfield(maze3x3_struct,'REWARD_GOAL');
-	maze3x3_struct = rmfield(maze3x3_struct,'REWARD_STEP');
+    maze57_struct = rmfield(maze57_struct,'REWARD_GOAL');
+	maze57_struct = rmfield(maze57_struct,'REWARD_STEP');
         
-    maze3x3_struct.theWorld = rmfield(maze3x3_struct.theWorld,'map');
-    maze3x3_struct.theWorld = rmfield(maze3x3_struct.theWorld,'agentRow');
-    maze3x3_struct.theWorld = rmfield(maze3x3_struct.theWorld,'agentCol');
-	maze3x3_struct = rmfield(maze3x3_struct,'theWorld');
+    maze57_struct.theWorld = rmfield(maze57_struct.theWorld,'map');
+    maze57_struct.theWorld = rmfield(maze57_struct.theWorld,'agentRow');
+    maze57_struct.theWorld = rmfield(maze57_struct.theWorld,'agentCol');
+	maze57_struct = rmfield(maze57_struct,'theWorld');
 
-    clear maze3x3_struct;
+    clear maze57_struct;
 end
 
 %
@@ -218,9 +217,9 @@ end
 %
 %
 function isTerminal = check_terminal(row,col)
-global maze3x3_struct;
+global maze57_struct;
 
-	if maze3x3_struct.theWorld.map(row, col) == maze3x3_struct.WORLD_GOAL
+	if maze57_struct.theWorld.map(row, col) == maze57_struct.WORLD_GOAL
     	isTerminal = true;
     else
         isTerminal = false;
@@ -229,16 +228,16 @@ end
 
 %Checks if a row,col is valid (not a wall or out of bounds)
 function isValid = check_valid(row,col)
-global maze3x3_struct;
+global maze57_struct;
 
-    numRows = size(maze3x3_struct.theWorld.map, 1);
-    numCols = size(maze3x3_struct.theWorld.map, 2);
+    numRows = size(maze57_struct.theWorld.map, 1);
+    numCols = size(maze57_struct.theWorld.map, 2);
 
     isValid = false;
 
     if (row <= numRows) && (row >= 1) && (col <= numCols) && (col >= 1)
-        if maze3x3_struct.theWorld.map(row, col) ...
-                ~= maze3x3_struct.WORLD_OBSTACLE
+        if maze57_struct.theWorld.map(row, col) ...
+                ~= maze57_struct.WORLD_OBSTACLE
             isValid = true;
         end
     end
@@ -247,20 +246,20 @@ end
 
 %Sets state and returns true if valid, false if invalid or terminal 
 function isValid = set_agent_state(row, col)
-global maze3x3_struct;
+global maze57_struct;
 
-    maze3x3_struct.theWorld.agentRow = row;
-    maze3x3_struct.theWorld.agentCol = col;
+    maze57_struct.theWorld.agentRow = row;
+    maze57_struct.theWorld.agentCol = col;
 	
 	isValid = check_valid(row, col) && ~check_terminal(row, col);
 end
 
 %Put the agent in a random, valid, nonterminal state
 function set_random_state()
-global maze3x3_struct;
+global maze57_struct;
     
-    numRows = size(maze3x3_struct.theWorld.map, 1);
-    numCols = size(maze3x3_struct.theWorld.map, 2);
+    numRows = size(maze57_struct.theWorld.map, 1);
+    numCols = size(maze57_struct.theWorld.map, 2);
 
     startRow = randi(numRows);
     startCol = randi(numCols);
@@ -270,54 +269,54 @@ global maze3x3_struct;
         startCol = randi(numCols);
     end
     
-    maze3x3_struct.theWorld.agentRow = startRow;
-    maze3x3_struct.theWorld.agentCol = startCol;
+    maze57_struct.theWorld.agentRow = startRow;
+    maze57_struct.theWorld.agentCol = startCol;
 
 end
 
 %Returns a number in [0,15]
 function totalObservation = getObservation()
-global maze3x3_struct;
+global maze57_struct;
     
-    newRow = maze3x3_struct.theWorld.agentRow;
-    newCol = maze3x3_struct.theWorld.agentCol;
+    newRow = maze57_struct.theWorld.agentRow;
+    newCol = maze57_struct.theWorld.agentCol;
  
     totalObservation = 1;
     if ~check_valid(newRow-1, newCol)
-        totalObservation = totalObservation + maze3x3_struct.OBS_NORTH;
+        totalObservation = totalObservation + maze57_struct.OBS_NORTH;
     end
     if ~check_valid(newRow, newCol+1)
-        totalObservation = totalObservation + maze3x3_struct.OBS_EAST;
+        totalObservation = totalObservation + maze57_struct.OBS_EAST;
     end
     if ~check_valid(newRow+1, newCol)
-        totalObservation = totalObservation + maze3x3_struct.OBS_SOUTH;
+        totalObservation = totalObservation + maze57_struct.OBS_SOUTH;
     end
     if ~check_valid(newRow, newCol-1)
-        totalObservation = totalObservation + maze3x3_struct.OBS_WEST;
+        totalObservation = totalObservation + maze57_struct.OBS_WEST;
     end
 end
 
 %Updates the agent's position based on the action provided.
 %When the move would result in hitting an obstacles, the agent doesn't move 
 function updatePosition(theIntAction)
-global maze3x3_struct;
+global maze57_struct;
     
-    newRow = maze3x3_struct.theWorld.agentRow;
-    newCol = maze3x3_struct.theWorld.agentCol;
+    newRow = maze57_struct.theWorld.agentRow;
+    newCol = maze57_struct.theWorld.agentCol;
 
     fprintf(1, 'updating position (%d %d) action %d\n', newCol, newRow, ...
         theIntAction);
 	
-	if theIntAction == maze3x3_struct.MOVE_NORTH
+	if theIntAction == maze57_struct.MOVE_NORTH
 		newRow = newRow - 1;
 	end
-	if theIntAction == maze3x3_struct.MOVE_EAST
+	if theIntAction == maze57_struct.MOVE_EAST
 		newCol = newCol + 1;
 	end
-	if theIntAction == maze3x3_struct.MOVE_SOUTH
+	if theIntAction == maze57_struct.MOVE_SOUTH
 		newRow = newRow + 1;
 	end
-	if theIntAction == maze3x3_struct.MOVE_WEST
+	if theIntAction == maze57_struct.MOVE_WEST
 		newCol = newCol - 1;
     end
     
@@ -325,8 +324,8 @@ global maze3x3_struct;
 
 	%Check if new position is out of bounds or inside an obstacle 
 	if check_valid(newRow, newCol)
-   		maze3x3_struct.theWorld.agentRow = newRow;
-   		maze3x3_struct.theWorld.agentCol = newCol;
+   		maze57_struct.theWorld.agentRow = newRow;
+   		maze57_struct.theWorld.agentCol = newCol;
         fprintf(1, 'valid\n');
     else
         fprintf(1, 'not valid\n');	end
@@ -334,30 +333,30 @@ end
 
 %Calculate the reward for the current state
 function theReward = getReward()
-global maze3x3_struct;
+global maze57_struct;
 
-    agentRow = maze3x3_struct.theWorld.agentRow;
-    agentCol = maze3x3_struct.theWorld.agentCol;
+    agentRow = maze57_struct.theWorld.agentRow;
+    agentCol = maze57_struct.theWorld.agentCol;
 
-    if maze3x3_struct.theWorld.map(agentRow, agentCol) ...
-            == maze3x3_struct.WORLD_GOAL
-        theReward = maze3x3_struct.REWARD_GOAL;
+    if maze57_struct.theWorld.map(agentRow, agentCol) ...
+            == maze57_struct.WORLD_GOAL
+        theReward = maze57_struct.REWARD_GOAL;
         return;
     end
         
-    theReward = maze3x3_struct.REWARD_STEP;
+    theReward = maze57_struct.REWARD_STEP;
 end
 
 
 %These are 1-indexed, so decrement them when printing to make them 0-index
 function printState()
-global maze3x3_struct;
+global maze57_struct;
 
-    numRows = size(maze3x3_struct.theWorld.map,1);
-    numCols = size(maze3x3_struct.theWorld.map,2);
+    numRows = size(maze57_struct.theWorld.map,1);
+    numCols = size(maze57_struct.theWorld.map,2);
 
-    agentRow = maze3x3_struct.theWorld.agentRow;
-    agentCol = maze3x3_struct.theWorld.agentCol;
+    agentRow = maze57_struct.theWorld.agentRow;
+    agentCol = maze57_struct.theWorld.agentCol;
 
     fprintf(1, 'Agent is at: %d,%d\n', agentRow-1, agentCol-1);
 	fprintf(1,'  Columns:0-%d\n',numCols);
@@ -374,16 +373,16 @@ global maze3x3_struct;
             if (agentRow == row) && (agentCol == col)
                 fprintf(1, 'A ');
             else
-                if maze3x3_struct.theWorld.map(row, col) ...
-                        == maze3x3_struct.WORLD_GOAL
+                if maze57_struct.theWorld.map(row, col) ...
+                        == maze57_struct.WORLD_GOAL
                     fprintf(1,'G ');
                 end
-                if maze3x3_struct.theWorld.map(row, col) ...
-                        == maze3x3_struct.WORLD_OBSTACLE
+                if maze57_struct.theWorld.map(row, col) ...
+                        == maze57_struct.WORLD_OBSTACLE
                     fprintf(1,'* ');
                 end
-                if maze3x3_struct.theWorld.map(row, col) ...
-                        == maze3x3_struct.WORLD_FREE
+                if maze57_struct.theWorld.map(row, col) ...
+                        == maze57_struct.WORLD_FREE
                     fprintf(1, '  ');
                 end
             end
